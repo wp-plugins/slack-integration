@@ -23,20 +23,12 @@ class Slack_API {
 		return $url;
 	}
 
-	/*public function slack_authenticate()
-	{
-		$url = $this->auth_url."?client_id=".$this->app_client_id;
-
-		if(isset($_GET["code"]))
-		{
-			// If you auth already
-			var_dump($_GET["code"]);
-		}
-		else
-		{
-			wp_redirect($url); exit;
-		}
-	}*/
+	public function slack_logout() {
+		$this->set_auth_token('');
+		delete_option('slack_app_client_id');
+		delete_option('slack_app_client_secret');
+		delete_option("slack_for_wp_token");
+	}
 
 	public function get_channel_list()
 	{
