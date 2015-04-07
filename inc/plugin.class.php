@@ -37,6 +37,17 @@ class Slack_Plugin {
 		$ops = $this->get_options();
 		?>
 		<div class="wrap">
+		<div id="reklam"><script async src="//pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+		<!-- wp-slack Plugin Admin Page -->
+		<ins class="adsbygoogle"
+		     style="display:block"
+		     data-ad-client="ca-pub-9792205570091420"
+		     data-ad-slot="2441051284"
+		     data-ad-format="auto"></ins>
+		<script>
+		(adsbygoogle = window.adsbygoogle || []).push({});
+		</script>
+		</div>
 		<div class="bootstrap-wp-wrapper">
 		<div class="container-fluid">
 		    <div class="page-header">
@@ -359,7 +370,7 @@ class Slack_Plugin {
     {
     	$hooks = $this->get_options();
 
-    	if(is_array($hooks)) :
+    	if(is_object($hooks)) :
     	if($hooks->slack_publish_post)
     	{
     		add_action('publish_post', array($this, 'publish_post_hook'));
@@ -409,6 +420,6 @@ class Slack_Plugin {
     }
     public function getVersion()
     {
-    	return "1.1.0";
+    	return "1.1.1";
     }
 }
