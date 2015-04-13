@@ -4,7 +4,7 @@ Plugin Name: Slack Integration for WordPress
 Plugin URI: http://wordpress.org/plugins/slack-wordpress/
 Description: Slack Integration for WordPress.
 Author: Eray Alakese
-Version: 1.1.1
+Version: 1.2.0
 Author URI: http://erayalakese.com/
 */
 require_once("inc/api.class.php");
@@ -16,6 +16,7 @@ function activate()
 }
 //register_activation_hook(__FILE__, 'activate');
 
-$plugin = new Slack_Plugin();
+global $slack_plugin;
+$slack_plugin = new Slack_Plugin();
 
 ?>
