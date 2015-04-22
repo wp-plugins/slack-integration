@@ -10,31 +10,18 @@ class Slack_Plugin {
 		$this->api = new Slack_API();
 		$this->register_scripts();
 		$this->register_hooks();
+
+		add_action('admin_init', array($this, 'http_requests'));
 	}
 	public function register_menu_page() {
 		add_options_page("Slack", "Slack", "manage_options", "slack-for-wordpress", array($this, 'load_page'));
 	}
 	public function load_page() {
 
-		if(isset($_GET["code"]))
-		{
-			$qs = "client_id=".$this->api->app_client_id."&client_secret=".$this->api->app_client_secret."&code=".$_GET["code"]."&redirect_uri=http://".$_SERVER['SERVER_NAME'].$_SERVER['REQUEST_URI'];
-			$c = file_get_contents("https://slack.com/api/oauth.access?".$qs);
-			$result = json_decode($c);
-			update_option("slack_for_wp_token", $result->access_token);
-			$this->api->set_auth_token($result->access_token);
-		}
-		elseif ($_GET["unlink"]) {
-			$this->api->slack_logout();
-		}
-
-		if($_POST["slack_options_submit"])
-		{
-			$this->register_options($_POST);
-		}
-
 		$channels = $this->api->get_channel_list();
+		if(!$channels) $channels = array();
 		$groups = $this->api->get_group_list();
+		if(!$groups) $groups = array();
 		$all_channels = array_merge($channels,$groups);
 		$ops = $this->get_options();
 		?>
@@ -50,11 +37,7 @@ class Slack_Plugin {
 		        	<?php
 					if(!$this->api->get_auth_token())
 					{
-						if($_POST["app_client_id"] && $_POST["app_client_secret"])
-						{
-							update_option("slack_app_client_id", $_POST["app_client_id"]);
-							update_option("slack_app_client_secret", $_POST["app_client_secret"]);
-						}
+						
 						if(!get_option('slack_app_client_id')):
 						echo "<a href='https://api.slack.com/applications/new'>Create a new application</a><br />";
 						echo "<form action='' method='POST'><label for='app_client_id'>App Client ID</label><input type='text' name='app_client_id' />";
@@ -117,6 +100,43 @@ class Slack_Plugin {
 		                <br />
 		                <input type="checkbox" <?=$ops->slack_trashed_post->post_title?"checked=checked":""?> name="slack_trashed_post[post_title]" />Post title
 		                <input type="checkbox" <?=$ops->slack_trashed_post->post_author?"checked=checked":""?> name="slack_trashed_post[post_author]" />Post author
+		            </div>
+		        </div>
+		    </div>
+		    <div class="row">
+		        <div class="col-sm-3">PAGE</div>
+		        <div class="col-sm-9">
+		            <input type="checkbox" name="slack_publish_page" <?=$ops->slack_publish_page?"checked=checked":""?> class="slack_admin_checkbox" />
+		            <label>When a page published</label>
+		            <br />
+		            <div class="<?=$ops->slack_publish_page?"":"disabled"?>">Send notification to this channel :
+		                <select name="slack_publish_page[channel]"><?=$this->print_channels_options($all_channels, $ops->slack_publish_page)?></select>
+		                <br />And add these datas :
+		                <br />
+		                <input type="checkbox" <?=$ops->slack_publish_page->post_title?"checked=checked":""?> name="slack_publish_page[post_title]" />Page title
+		                <input type="checkbox" <?=$ops->slack_publish_page->post_author?"checked=checked":""?> name="slack_publish_page[post_author]" />Page author
+		            </div>
+		            <hr />
+		            <input type="checkbox" name="slack_update_page" <?=$ops->slack_update_page?"checked=checked":""?> class="slack_admin_checkbox" />
+		            <label>When a page updated.</label>
+		            <br />
+		            <div class="<?=$ops->slack_update_page?"":"disabled"?>">Send notification to this channel :
+		                <select name="slack_update_page[channel]"><?=$this->print_channels_options($all_channels, $ops->slack_update_page)?></select>
+		                <br />And add these datas :
+		                <br />
+		                <input type="checkbox" <?=$ops->slack_update_page->post_title?"checked=checked":""?> name="slack_update_page[post_title]" />Page title
+		                <input type="checkbox" <?=$ops->slack_update_page->post_editor?"checked=checked":""?> name="slack_update_page[post_editor]" />Page editor
+		            </div>
+		            <hr />
+		            <input type="checkbox" name="slack_trashed_page" <?=$ops->slack_trashed_page?"checked=checked":""?> class="slack_admin_checkbox" />
+		            <label>When a page deleted</label>
+		            <br />
+		            <div class="<?=$ops->slack_trashed_page?"":"disabled"?>">Send notification to this channel :
+		                <select name="slack_trashed_page[channel]"><?=$this->print_channels_options($all_channels, $ops->slack_trashed_page)?></select>
+		                <br />And add these datas :
+		                <br />
+		                <input type="checkbox" <?=$ops->slack_trashed_page->post_title?"checked=checked":""?> name="slack_trashed_page[post_title]" />Page title
+		                <input type="checkbox" <?=$ops->slack_trashed_page->post_author?"checked=checked":""?> name="slack_trashed_page[post_author]" />Page author
 		            </div>
 		        </div>
 		    </div>
@@ -244,39 +264,43 @@ class Slack_Plugin {
 		if ( (defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE) ) {
 			return;
 		}
+
+		$post_type = $post->post_type;
 		
 		if( ( $strOldStatus == 'draft' || $strOldStatus == 'auto-draft' || $strOldStatus == 'new' ) && $strNewStatus == 'publish' ) :
-			// New post published
+			// New post/page published
 			$hooks = $this->get_options();
 
-			$msg = ($hooks->slack_publish_post->post_title=='on'?get_the_title($post->ID):'A new post');
+			$msg = ($hooks->{"slack_publish_$post_type"}->post_title=='on'?get_the_title($post->ID):'A new post');
 			$msg .= " published.\n";
-			$msg .= ($hooks->slack_publish_post->post_author=='on'?' Author '.get_the_author_meta('display_name', get_post($post->ID)->post_author)."\n":'');
+			$msg .= ($hooks->{"slack_publish_$post_type"}->post_author=='on'?' Author '.get_the_author_meta('display_name', get_post($post->ID)->post_author)."\n":'');
 			$msg .= get_permalink($post->ID);
-			$this->api->publish_post($hooks->slack_publish_post->channel, $msg);
+			$this->api->publish_post($hooks->{"slack_publish_$post_type"}->channel, $msg);
 			
 		elseif( $strOldStatus == 'publish' && $strNewStatus == 'publish') :
-			// Post updated
+			// Post/Page updated
 			$hooks = $this->get_options();
 		
 			// Find real user who edit post, instead of author of post.
 			$current_user = wp_get_current_user();
-			$msg = ($hooks->slack_update_post->post_title=='on'?get_the_title($post->ID):'A post/page');
+			$msg = ($hooks->{"slack_update_$post_type"}->post_title=='on'?get_the_title($post->ID):'A post/page');
 			$msg .= " was updated.\n";
-			$msg .= ($hooks->slack_update_post->post_editor=='on'?"Editor: {$current_user->display_name} \n":'');
+			$msg .= ($hooks->{"slack_update_$post_type"}->post_editor=='on'?"Editor: {$current_user->display_name} \n":'');
 			$msg .= get_permalink($post->ID);
-			$this->api->publish_post($hooks->slack_update_post->channel, $msg);
+			$this->api->publish_post($hooks->{"slack_update_$post_type"}->channel, $msg);
 		endif;
 	}
 	public function trashed_post_hook($postID)
 	{
 		$hooks = $this->get_options();
 
-		$msg = ($hooks->slack_trashed_post->post_title=='on'?get_the_title($postID):'A post');
+		$post_type = get_post_type($postID);
+
+		$msg = ($hooks->{"slack_trashed_$post_type"}->post_title=='on'?get_the_title($postID):'A post');
 		$msg .= " deleted.\n";
-		$msg .= ($hooks->slack_trashed_post->post_author=='on'?' Author '.get_the_author_meta('display_name', get_post($postID)->post_author)."\n":'');
+		$msg .= ($hooks->{"slack_trashed_$post_type"}->post_author=='on'?' Author '.get_the_author_meta('display_name', get_post($postID)->post_author)."\n":'');
 		$msg .= get_permalink($postID);
-		$this->api->publish_post($hooks->slack_trashed_post->channel, $msg);
+		$this->api->publish_post($hooks->{"slack_trashed_$post_type"}->channel, $msg);
 	}
 	public function wp_insert_comment_hook($comment_id, $comment_object)
 	{
@@ -400,11 +424,21 @@ class Slack_Plugin {
     	$hooks = $this->get_options();
 
     	if(is_object($hooks)) :
+
+    	// Using same hook func for post and page actions.	
     	if($hooks->slack_publish_post || $hooks->slack_update_post)
     	{
     		add_action('transition_post_status', array($this, 'publish_post_hook'), 10, 3);
     	}
     	if($hooks->slack_trashed_post)
+    	{
+    		add_action('trashed_post', array($this, 'trashed_post_hook'));
+    	}
+    	if($hooks->slack_publish_page || $hooks->slack_update_page)
+    	{
+    		add_action('transition_post_status', array($this, 'publish_post_hook'), 10, 3);
+    	}
+    	if($hooks->slack_trashed_page)
     	{
     		add_action('trashed_post', array($this, 'trashed_post_hook'));
     	}
@@ -443,12 +477,42 @@ class Slack_Plugin {
     	endif;
     }
 
+    public function http_requests()
+    {
+    	if(isset($_GET["code"]))
+		{
+			$qs = "client_id=".$this->api->app_client_id."&client_secret=".$this->api->app_client_secret."&code=".$_GET["code"]."&redirect_uri=http://".$_SERVER['SERVER_NAME'].$_SERVER['REQUEST_URI'];
+			$c = file_get_contents("https://slack.com/api/oauth.access?".$qs);
+			$result = json_decode($c);
+			update_option("slack_for_wp_token", $result->access_token);
+			$this->api->set_auth_token($result->access_token);
+
+			wp_safe_redirect('options-general.php?page=slack-for-wordpress');
+			exit;
+		}
+		elseif ($_GET["unlink"]) {
+			$this->api->slack_logout();
+
+			wp_safe_redirect('options-general.php?page=slack-for-wordpress');
+			exit;
+		}
+		else if($_POST["slack_options_submit"])
+		{
+			$this->register_options($_POST);
+		}
+		else if($_POST["app_client_id"] && $_POST["app_client_secret"])
+		{
+			update_option("slack_app_client_id", $_POST["app_client_id"]);
+			update_option("slack_app_client_secret", $_POST["app_client_secret"]);
+		}
+    }
+
     public function getApi()
     {
     	return $this->api;
     }
     public function getVersion()
     {
-    	return "1.3.1";
+    	return "1.4.0";
     }
 }
