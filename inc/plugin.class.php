@@ -24,6 +24,9 @@ class Slack_Plugin {
 		if(!$groups) $groups = array();
 		$all_channels = array_merge($channels,$groups);
 		$ops = $this->get_options();
+		$cpts = get_post_types(array(
+				'_builtin' => false,
+			), 'names');
 		?>
 		<div class="wrap">
 		<div class="bootstrap-wp-wrapper">
@@ -35,8 +38,14 @@ class Slack_Plugin {
 		    right: 0;
 		    top: 100px;
 		    border: 1px solid;
+		    z-index: 9999;
 		">
-			<p><strong>Version: </strong><?=$this->getVersion()?></p><p>All bug reports and new feature requests are welcome in <a href="https://github.com/erayalakese/slack-wordpress/issues">here</a>.</p>
+			<p><strong>Version: </strong><?=$this->getVersion()?></p><p>All bug reports and new feature requests are welcome in <a href="https://github.com/erayalakese/slack-wordpress/issues">here</a>.
+			<hr>
+			<h5>PREMIUM <img src="<?=plugins_url('img/wordpress.png', dirname(__FILE__))?>" width="100"> PLUGINS <small>FROM AUTHOR</small></h5>
+			<a style="" href="http://codecanyon.net/item/wordpress-post-series-ultimate/11334162?ref=erayalakese"><img src="<?=plugins_url('img/thumb.png', dirname(__FILE__))?>" alt=""></a>
+			<a style="" href="http://codecanyon.net/item/debug-my-wp/11440759?ref=erayalakese"><img src="<?=plugins_url('img/80x80.jpg', dirname(__FILE__))?>" alt=""></a>
+			</p>
 		</div>
 		<div class="container-fluid">
 		    <div class="page-header">
@@ -151,6 +160,45 @@ class Slack_Plugin {
 		            </div>
 		        </div>
 		    </div>
+		    <?php foreach($cpts as $cpt) : ?>
+		    <div class="row">
+		        <div class="col-sm-3"><?=strtoupper($cpt)?></div>
+		        <div class="col-sm-9">
+		            <input type="checkbox" name="slack_publish_<?=$cpt?>" <?=$ops->{"slack_publish_$cpt"}?"checked=checked":""?> class="slack_admin_checkbox" />
+		            <label>When a <?=$cpt?> published</label>
+		            <br />
+		            <div class="<?=$ops->{"slack_publish_$cpt"}?"":"disabled"?>">Send notification to this channel :
+		                <select name="slack_publish_<?=$cpt?>[channel]"><?=$this->print_channels_options($all_channels, $ops->{"slack_publish_$cpt"})?></select>
+		                <br />And add these datas :
+		                <br />
+		                <input type="checkbox" <?=$ops->{"slack_publish_$cpt"}->post_title?"checked=checked":""?> name="slack_publish_<?=$cpt?>[post_title]" /><?=$cpt?> title
+		                <input type="checkbox" <?=$ops->{"slack_publish_$cpt"}->post_author?"checked=checked":""?> name="slack_publish_<?=$cpt?>[post_author]" /><?=$cpt?> author
+		            </div>
+		            <hr />
+		            <input type="checkbox" name="slack_update_<?=$cpt?>" <?=$ops->{"slack_update_$cpt"}?"checked=checked":""?> class="slack_admin_checkbox" />
+		            <label>When a <?=$cpt?> updated.</label>
+		            <br />
+		            <div class="<?=$ops->{"slack_update_$cpt"}?"":"disabled"?>">Send notification to this channel :
+		                <select name="slack_update_<?=$cpt?>[channel]"><?=$this->print_channels_options($all_channels, $ops->{"slack_update_$cpt"})?></select>
+		                <br />And add these datas :
+		                <br />
+		                <input type="checkbox" <?=$ops->{"slack_update_$cpt"}->post_title?"checked=checked":""?> name="slack_update_<?=$cpt?>[post_title]" /><?=$cpt?> title
+		                <input type="checkbox" <?=$ops->{"slack_update_$cpt"}->post_editor?"checked=checked":""?> name="slack_update_<?=$cpt?>[post_editor]" /><?=$cpt?> editor
+		            </div>
+		            <hr />
+		            <input type="checkbox" name="slack_trashed_<?=$cpt?>" <?=$ops->{"slack_trashed_$cpt"}?"checked=checked":""?> class="slack_admin_checkbox" />
+		            <label>When a post deleted</label>
+		            <br />
+		            <div class="<?=$ops->{"slack_trashed_$cpt"}?"":"disabled"?>">Send notification to this channel :
+		                <select name="slack_trashed_<?=$cpt?>[channel]"><?=$this->print_channels_options($all_channels, $ops->{"slack_trashed_$cpt"})?></select>
+		                <br />And add these datas :
+		                <br />
+		                <input type="checkbox" <?=$ops->{"slack_trashed_$cpt"}->post_title?"checked=checked":""?> name="slack_trashed_<?=$cpt?>[post_title]" /><?=$cpt?> title
+		                <input type="checkbox" <?=$ops->{"slack_trashed_$cpt"}->post_author?"checked=checked":""?> name="slack_trashed_<?=$cpt?>[post_author]" /><?=$cpt?> author
+		            </div>
+		        </div>
+		    </div>
+			<?php endforeach; ?>
 		    <div class="row">
 		        <div class="col-sm-3">COMMENT</div>
 		        <div class="col-sm-9">
@@ -282,7 +330,7 @@ class Slack_Plugin {
 			// New post/page published
 			$hooks = $this->get_options();
 
-			$msg = ($hooks->{"slack_publish_$post_type"}->post_title=='on'?get_the_title($post->ID):'A new post');
+			$msg = ($hooks->{"slack_publish_$post_type"}->post_title=='on'?get_the_title($post->ID):'A new '.$post_type);
 			$msg .= " published.\n";
 			$msg .= ($hooks->{"slack_publish_$post_type"}->post_author=='on'?' Author '.get_the_author_meta('display_name', get_post($post->ID)->post_author)."\n":'');
 			$msg .= get_permalink($post->ID);
@@ -294,7 +342,7 @@ class Slack_Plugin {
 		
 			// Find real user who edit post, instead of author of post.
 			$current_user = wp_get_current_user();
-			$msg = ($hooks->{"slack_update_$post_type"}->post_title=='on'?get_the_title($post->ID):'A post/page');
+			$msg = ($hooks->{"slack_update_$post_type"}->post_title=='on'?get_the_title($post->ID):'A '.$post_type);
 			$msg .= " was updated.\n";
 			$msg .= ($hooks->{"slack_update_$post_type"}->post_editor=='on'?"Editor: {$current_user->display_name} \n":'');
 			$msg .= get_permalink($post->ID);
@@ -453,6 +501,20 @@ class Slack_Plugin {
     	{
     		add_action('trashed_post', array($this, 'trashed_post_hook'));
     	}
+    	$cpts = get_post_types(array(
+				'_builtin' => false,
+			), 'names');
+    	foreach($cpts as $cpt)
+    	{
+    		if($hooks->{"slack_publish_$cpt"} || $hooks->{"slack_update_$cpt"})
+	    	{
+	    		add_action('transition_post_status', array($this, 'publish_post_hook'), 10, 3);
+	    	}
+	    	if($hooks->{"slack_trashed_$cpt"})
+	    	{
+	    		add_action('trashed_post', array($this, 'trashed_post_hook'));
+	    	}
+    	}
     	if($hooks->slack_wp_insert_comment)
     	{
     		add_action('wp_insert_comment', array($this, 'wp_insert_comment_hook'), 10, 2);
@@ -493,7 +555,7 @@ class Slack_Plugin {
     	if(isset($_GET["code"]))
 		{
 			$qs = "client_id=".$this->api->app_client_id."&client_secret=".$this->api->app_client_secret."&code=".$_GET["code"]."&redirect_uri=http://".$_SERVER['SERVER_NAME'].$_SERVER['REQUEST_URI'];
-			$c = file_get_contents("https://slack.com/api/oauth.access?".$qs);
+			$c = $this->make_request("https://slack.com/api/oauth.access?".$qs);
 			$result = json_decode($c);
 			update_option("slack_for_wp_token", $result->access_token);
 			$this->api->set_auth_token($result->access_token);
@@ -518,12 +580,31 @@ class Slack_Plugin {
 		}
     }
 
+    public static function make_request($url)
+	{
+		if(function_exists('curl_version')) :
+			$CURL = curl_init();
+
+			curl_setopt($CURL, CURLOPT_URL, $url);
+			curl_setopt($CURL, CURLOPT_HEADER, 0);
+			curl_setopt($CURL, CURLOPT_RETURNTRANSFER, 1);
+
+			$data = curl_exec($CURL);
+
+			curl_close($CURL);
+
+			return $data;
+		else :
+			return file_get_contents($url);
+		endif;
+	}
+
     public function getApi()
     {
     	return $this->api;
     }
     public function getVersion()
     {
-    	return "1.4.2";
+    	return "1.5.0";
     }
 }
