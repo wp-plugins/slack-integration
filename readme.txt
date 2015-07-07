@@ -4,7 +4,7 @@ Donate link: http://goo.gl/KTmqNL
 Tags: slack,integration,chat,api,notification,team
 Requires at least: 3.6.1
 Tested up to: 4.2.2
-Stable tag: 1.6.1
+Stable tag: 1.7.0
 License: The MIT License
 License URI: http://opensource.org/licenses/MIT
 
@@ -39,6 +39,14 @@ This plugin sends notifications when
 
  `publish_post()` returns response of [chat.postMessage](https://api.slack.com/methods/chat.postMessage) , you can look at **Response** section. Also you can check **Formatting** section to formatting your message.
 
+ = AUTHOR =
+ * [Eray Alakese](http://eray.rocks)
+
+ = CONTRIBUTORS =
+ * [wormeyman](https://github.com/wormeyman)
+ * [Cartor](https://github.com/Cartor)
+ * [likol](https://github.com/likol)
+
 == Installation ==
 
 1. Create a new Slack Application on [here](https://api.slack.com/applications/new "New Slack Application")
@@ -49,6 +57,11 @@ This plugin sends notifications when
 6. Now you can configure Slack on *Settings > Slack* page.
 
 == Changelog ==
+
+= 1.7.0 =
+* Post excerpt bug fixed. Bug #21
+* Now sending notifications when a user logged in.
+* Some little design problems solved.
 
 = 1.6.1 =
 * Fix for bug #18 . Wordpress Jetpack plugin conflict solved.
